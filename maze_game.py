@@ -322,3 +322,57 @@ def draw_menu(surf, big_font, med_font, small_font, tick):
 
     draw_centered_text(surf, "Move: WASD / Arrow Keys     Collect Coins     Reach the Exit     Avoid Enemies",
                        small_font, (100, 100, 130), surf.get_height() - 36)
+
+
+def draw_you_died(surf, big_font, med_font, alpha):
+    overlay = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, min(200, alpha)))
+    surf.blit(overlay, (0, 0))
+
+    a_clamped = min(255, alpha)
+    col = (min(255, a_clamped), max(0, 60 - alpha // 4), max(0, 60 - alpha // 4))
+    draw_centered_text(surf, "Y O U   D I E D", big_font, col, surf.get_height() // 2 - 40)
+    if alpha > 180:
+        draw_centered_text(surf, "Your souls dropped at the death spot — go back to recover them!",
+                           med_font, (180, 100, 100), surf.get_height() // 2 + 30)
+
+
+def draw_level_clear(surf, big_font, med_font, alpha, level):
+    overlay = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, min(180, alpha)))
+    surf.blit(overlay, (0, 0))
+    draw_centered_text(surf, "LEVEL CLEARED!", big_font, C_EXIT, surf.get_height() // 2 - 40)
+    if alpha > 120:
+        draw_centered_text(surf, f"Proceeding to Level {level + 1}...",
+                           med_font, (180, 255, 210), surf.get_height() // 2 + 30)
+
+
+def draw_game_over(surf, big_font, med_font, small_font, score):
+    surf.fill(C_BG)
+    draw_centered_text(surf, "GAME OVER", big_font, C_RED, surf.get_height() // 2 - 80)
+    draw_centered_text(surf, f"Your Final Score:  {score}", med_font, C_SCORE_TXT,
+                       surf.get_height() // 2 - 10)
+    draw_centered_text(surf, "Press R to Play Again   |   Press ESC to Quit",
+                       small_font, (140, 140, 160), surf.get_height() // 2 + 50)
+
+
+class ExitPortal:
+    def __init__(self, tile_x, tile_y):
+        self.tile  = (tile_x, tile_y)
+        self.pulse = 0.0
+
+    def update(self):
+        self.pulse = (self.pulse + 0.06) % (2 * math.pi)
+
+    def draw(self, surf, hud_offset):
+        cx = self.tile[0] * TILE + TILE // 2
+        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+        r  = int(11 + 4 * math.sin(self.pulse))
+
+        glow = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (*C_EXIT, 60), (TILE, TILE), r + 6)
+        surf.blit(glow, (cx - TILE, cy - TILE))
+        pygame.draw.circle(surf, C_EXIT, (cx, cy), r)
+        pygame.draw.circle(surf, (220, 255, 245), (cx, cy), max(4, r - 4))
+
+
