@@ -1,3 +1,5 @@
+
+
 import pygame
 import sys
 import random
@@ -46,6 +48,14 @@ ENEMY_DAMAGE    = 25
 ENEMY_DAMAGE_CD = 60
 ENEMY_COUNT_BASE = 2
 COIN_COUNT_BASE  = 8
+
+
+class GameState(Enum):
+    MENU        = auto()
+    PLAYING     = auto()
+    DEAD_SCREEN = auto()
+    LEVEL_CLEAR = auto()
+    GAME_OVER   = auto()
 
 
 def generate_maze(cols, rows):
@@ -118,7 +128,6 @@ def astar(grid, start, goal):
     return []
 
 
-
 class SoulOrb:
     def __init__(self, tile_x, tile_y, value):
         self.tile = (tile_x, tile_y)
@@ -140,7 +149,6 @@ class SoulOrb:
         surf.blit(glow_surf, (cx - TILE, cy - TILE))
         pygame.draw.circle(surf, C_SOUL_B, (cx, cy), r)
         pygame.draw.circle(surf, (240, 248, 255), (cx, cy), max(3, r - 3))
-
 
 
 class Coin:
@@ -213,7 +221,6 @@ class Player:
             aura = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
             pygame.draw.circle(aura, (*C_SOUL_A, 50), (TILE, TILE), r)
             surf.blit(aura, (cx - TILE, cy - TILE))
-
 
 
 
@@ -313,7 +320,7 @@ def draw_menu(surf, big_font, med_font, small_font, tick):
     pygame.draw.ellipse(glow_surf, (*C_MENU_GLOW, 40), (0, 0, 500, 100))
     surf.blit(glow_surf, (surf.get_width() // 2 - 250, title_y - 10))
 
-    draw_centered_text(surf, "Hollow-Hunger", big_font, C_WHITE, title_y)
+    draw_centered_text(surf, "HOLLOW-HUNGER", big_font, C_WHITE, title_y)
     draw_centered_text(surf, "Inspired by the great Hidetaka Miyazaki.", med_font, (150, 150, 180), title_y + 55)
 
     blink = (tick // 30) % 2 == 0
@@ -377,17 +384,16 @@ class ExitPortal:
 
 
 
-
 class Game:
     def __init__(self):
         pygame.init()
-        pygame.display.set_caption("Maze Game")
+        pygame.display.set_caption("Hollow-Hunger")
 
         self.base_w = BASE_MAZE_W
         self.base_h = BASE_MAZE_H
 
         self.screen = pygame.display.set_mode(
-            (self.base_w * TILE, self.base_h * TILE + HUD_HEIGHT))
+            (self.base_w * TILE, self.base_h * TILE + HUD_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
 
         self.clock    = pygame.time.Clock()
         self.big_font  = pygame.font.SysFont("consolas", 48, bold=True)
@@ -419,7 +425,7 @@ class Game:
         if rows % 2 == 0: rows += 1
 
         self.screen = pygame.display.set_mode(
-            (cols * TILE, rows * TILE + HUD_HEIGHT))
+            (cols * TILE, rows * TILE + HUD_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
 
         sys.setrecursionlimit(cols * rows * 4)
         self.grid = generate_maze(cols, rows)
@@ -637,6 +643,8 @@ class Game:
             draw_level_clear(surf, self.big_font, self.med_font, self.overlay_alpha, self.level)
 
         pygame.display.flip()
+
+
 
 if __name__ == "__main__":
     Game().run()
