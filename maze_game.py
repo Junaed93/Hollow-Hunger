@@ -313,7 +313,7 @@ def draw_menu(surf, big_font, med_font, small_font, tick):
     pygame.draw.ellipse(glow_surf, (*C_MENU_GLOW, 40), (0, 0, 500, 100))
     surf.blit(glow_surf, (surf.get_width() // 2 - 250, title_y - 10))
 
-    draw_centered_text(surf, "MAZE GAME", big_font, C_WHITE, title_y)
+    draw_centered_text(surf, "Hollow-Hunger", big_font, C_WHITE, title_y)
     draw_centered_text(surf, "Inspired by the great Hidetaka Miyazaki.", med_font, (150, 150, 180), title_y + 55)
 
     blink = (tick // 30) % 2 == 0
@@ -374,5 +374,268 @@ class ExitPortal:
         surf.blit(glow, (cx - TILE, cy - TILE))
         pygame.draw.circle(surf, C_EXIT, (cx, cy), r)
         pygame.draw.circle(surf, (220, 255, 245), (cx, cy), max(4, r - 4))
+
+
+
+
+class Game:
+    def __init__(self):
+        pygame.init()
+        pygame.display.set_caption("Maze Game")
+
+        self.base_w = BASE_MAZE_W
+        self.base_h = BASE_MAZE_H
+
+        self.screen = pygame.display.set_mode(
+            (self.base_w * TILE, self.base_h * TILE + HUD_HEIGHT))
+
+        self.clock    = pygame.time.Clock()
+        self.big_font  = pygame.font.SysFont("consolas", 48, bold=True)
+        self.med_font  = pygame.font.SysFont("consolas", 26, bold=True)
+        self.small_font= pygame.font.SysFont("consolas", 16)
+        self.font      = pygame.font.SysFont("consolas", 20, bold=True)
+
+        self.level = 1
+        self.state = GameState.MENU
+        self.tick  = 0
+        self.overlay_alpha = 0
+
+        self.grid    = []
+        self.player  = None
+        self.enemies = []
+        self.coins   = []
+        self.soul_orb = None
+        self.portal   = None
+        self.enemy_damage_timer = {}
+
+
+
+    def load_level(self):
+        cols = self.base_w + (self.level - 1) * 2
+        rows = self.base_h + (self.level - 1) * 2
+        cols = min(cols, 41)
+        rows = min(rows, 31)
+        if cols % 2 == 0: cols += 1
+        if rows % 2 == 0: rows += 1
+
+        self.screen = pygame.display.set_mode(
+            (cols * TILE, rows * TILE + HUD_HEIGHT))
+
+        sys.setrecursionlimit(cols * rows * 4)
+        self.grid = generate_maze(cols, rows)
+
+        floors = open_tiles(self.grid)
+        random.shuffle(floors)
+
+        self.player = Player(1, 1)
+
+        far = max(floors, key=lambda t: abs(t[0] - 1) + abs(t[1] - 1))
+        self.portal = ExitPortal(*far)
+        floors.remove(far)
+
+        num_enemies = ENEMY_COUNT_BASE + self.level - 1
+        self.enemies = []
+        self.enemy_damage_timer = {}
+        placed = 0
+        for t in floors:
+            if placed >= num_enemies:
+                break
+            if abs(t[0] - 1) + abs(t[1] - 1) > 6:
+                self.enemies.append(Enemy(*t))
+                placed += 1
+
+        num_coins = COIN_COUNT_BASE + self.level
+        used = {(1, 1), far} | {tuple(e.tile) for e in self.enemies}
+        self.coins = []
+        for t in floors:
+            if len(self.coins) >= num_coins:
+                break
+            if t not in used:
+                self.coins.append(Coin(*t))
+                used.add(t)
+
+        self.soul_orb = None
+        self.overlay_alpha = 0
+
+
+
+    def run(self):
+        while True:
+            dt = self.clock.tick(FPS)
+            self.tick += 1
+            self._handle_events()
+            self._update()
+            self._draw()
+
+
+
+    def _handle_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+
+                if self.state == GameState.MENU:
+                    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                        self.level = 1
+                        self.load_level()
+                        self.state = GameState.PLAYING
+
+                elif self.state == GameState.PLAYING:
+                    # Cheat: H = full health regen
+                    if event.key == pygame.K_h and self.player:
+                        self.player.hp = PLAYER_MAX_HP
+
+                elif self.state == GameState.GAME_OVER:
+                    if event.key == pygame.K_r:
+                        self.level = 1
+                        self.load_level()
+                        self.state = GameState.PLAYING
+
+    def _get_move_input(self):
+        keys = pygame.key.get_pressed()
+        dx = dy = 0
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:  dx = -1
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]: dx =  1
+        if keys[pygame.K_w] or keys[pygame.K_UP]:    dy = -1
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:  dy =  1
+        return dx, dy
+
+
+
+    def _update(self):
+        if self.state == GameState.MENU:
+            return
+
+        if self.state == GameState.GAME_OVER:
+            return
+
+        if self.state == GameState.DEAD_SCREEN:
+            self.overlay_alpha = min(self.overlay_alpha + 4, 255)
+            if self.overlay_alpha >= 255:
+                self.player = Player(1, 1)
+                self.player.hp = PLAYER_MAX_HP
+                self.state = GameState.PLAYING
+                self.overlay_alpha = 0
+            return
+
+        if self.state == GameState.LEVEL_CLEAR:
+            self.overlay_alpha = min(self.overlay_alpha + 3, 255)
+            if self.overlay_alpha >= 255:
+                score_carry = self.player.score if self.player else 0
+                self.level += 1
+                self.load_level()
+                self.player.score = score_carry
+                self.state = GameState.PLAYING
+            return
+
+        if self.state != GameState.PLAYING:
+            return
+
+        dx, dy = self._get_move_input()
+        self.player.move(dx, dy, self.grid)
+        self.player.update()
+
+        for coin in self.coins:
+            coin.update()
+            if not coin.collected and tuple(self.player.tile) == coin.tile:
+                coin.collected = True
+                self.player.score += COIN_VALUE
+
+        if self.soul_orb and self.soul_orb.active:
+            self.soul_orb.update()
+            if tuple(self.player.tile) == self.soul_orb.tile:
+                self.player.score += self.soul_orb.value
+                self.player.dropped_souls = 0
+                self.soul_orb.active = False
+
+        self.portal.update()
+        if tuple(self.player.tile) == self.portal.tile:
+            self.state = GameState.LEVEL_CLEAR
+            self.overlay_alpha = 0
+            return
+
+        for i, enemy in enumerate(self.enemies):
+            occupied = {tuple(e.tile) for j, e in enumerate(self.enemies) if j != i}
+            enemy.update(self.grid, self.player.tile, occupied)
+
+            if tuple(enemy.tile) == tuple(self.player.tile):
+                cd = self.enemy_damage_timer.get(i, 0)
+                if cd <= 0:
+                    self.player.take_damage(ENEMY_DAMAGE)
+                    self.enemy_damage_timer[i] = ENEMY_DAMAGE_CD
+                else:
+                    self.enemy_damage_timer[i] = cd - 1
+            else:
+                if i in self.enemy_damage_timer and self.enemy_damage_timer[i] > 0:
+                    self.enemy_damage_timer[i] -= 1
+
+        if self.player.hp <= 0:
+            soul_val = self.player.score
+            self.soul_orb = SoulOrb(self.player.tile[0], self.player.tile[1], soul_val)
+            self.player.score = 0
+            self.state = GameState.DEAD_SCREEN
+            self.overlay_alpha = 0
+
+
+
+    def _draw(self):
+        surf = self.screen
+
+        if self.state == GameState.MENU:
+            draw_menu(surf, self.big_font, self.med_font, self.small_font, self.tick)
+            pygame.display.flip()
+            return
+
+        if self.state == GameState.GAME_OVER:
+            draw_game_over(surf, self.big_font, self.med_font, self.small_font,
+                           self.player.score if self.player else 0)
+            pygame.display.flip()
+            return
+
+        surf.fill(C_BG)
+
+        cols = len(self.grid[0])
+        rows = len(self.grid)
+        for r in range(rows):
+            for c in range(cols):
+                rx = c * TILE
+                ry = r * TILE + HUD_HEIGHT
+                if self.grid[r][c] == 1:
+                    pygame.draw.rect(surf, C_WALL, (rx, ry, TILE, TILE))
+                    pygame.draw.rect(surf, C_WALL_EDGE, (rx, ry, TILE, TILE), 1)
+                else:
+                    col = C_FLOOR if (r + c) % 2 == 0 else C_FLOOR2
+                    pygame.draw.rect(surf, col, (rx, ry, TILE, TILE))
+
+        if self.soul_orb and self.soul_orb.active:
+            self.soul_orb.draw(surf, HUD_HEIGHT)
+
+        for coin in self.coins:
+            coin.draw(surf, HUD_HEIGHT)
+
+        self.portal.draw(surf, HUD_HEIGHT)
+
+        for enemy in self.enemies:
+            enemy.draw(surf, HUD_HEIGHT)
+
+        self.player.draw(surf, HUD_HEIGHT)
+
+        hud_rect = pygame.Rect(0, 0, surf.get_width(), HUD_HEIGHT)
+        draw_hud(surf, self.player, self.level, self.font, self.small_font,
+                 self.soul_orb, hud_rect)
+
+        if self.state == GameState.DEAD_SCREEN:
+            draw_you_died(surf, self.big_font, self.med_font, self.overlay_alpha)
+
+        if self.state == GameState.LEVEL_CLEAR:
+            draw_level_clear(surf, self.big_font, self.med_font, self.overlay_alpha, self.level)
+
+        pygame.display.flip()
 
 
