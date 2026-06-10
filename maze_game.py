@@ -67,3 +67,54 @@ def generate_maze(cols, rows):
     return grid
 
 
+def open_tiles(grid):
+    """Return list of (col, row) tuples that are floor."""
+    result = []
+    for r, row in enumerate(grid):
+        for c, cell in enumerate(row):
+            if cell == 0:
+                result.append((c, r))
+    return result
+
+
+
+def astar(grid, start, goal):
+    """
+    Find shortest path on grid from start to goal (tile coords).
+    Returns list of (col, row) tiles, or [] if no path.
+    """
+    rows = len(grid)
+    cols = len(grid[0])
+
+    def h(a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    open_set = []
+    heapq.heappush(open_set, (0, start))
+    came_from = {}
+    g = {start: 0}
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+        if current == goal:
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.reverse()
+            return path
+
+        cx, cy = current
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < cols and 0 <= ny < rows and grid[ny][nx] == 0:
+                ng = g[current] + 1
+                nb = (nx, ny)
+                if ng < g.get(nb, float('inf')):
+                    g[nb] = ng
+                    came_from[nb] = current
+                    f = ng + h(nb, goal)
+                    heapq.heappush(open_set, (f, nb))
+    return []
+
+
