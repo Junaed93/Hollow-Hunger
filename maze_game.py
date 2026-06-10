@@ -118,3 +118,26 @@ def astar(grid, start, goal):
     return []
 
 
+
+class SoulOrb:
+    def __init__(self, tile_x, tile_y, value):
+        self.tile = (tile_x, tile_y)
+        self.value = value
+        self.active = True
+        self.pulse = 0.0
+
+    def update(self):
+        self.pulse = (self.pulse + 0.08) % (2 * math.pi)
+
+    def draw(self, surf, hud_offset):
+        if not self.active:
+            return
+        cx = self.tile[0] * TILE + TILE // 2
+        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+        r  = int(7 + 3 * math.sin(self.pulse))
+        glow_surf = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*C_SOUL_A, 60), (TILE, TILE), r + 6)
+        surf.blit(glow_surf, (cx - TILE, cy - TILE))
+        pygame.draw.circle(surf, C_SOUL_B, (cx, cy), r)
+        pygame.draw.circle(surf, (240, 248, 255), (cx, cy), max(3, r - 3))
+
