@@ -48,3 +48,22 @@ ENEMY_COUNT_BASE = 2
 COIN_COUNT_BASE  = 8
 
 
+def generate_maze(cols, rows):
+    """Return 2D list: 0=floor, 1=wall. cols & rows must be odd."""
+    grid = [[1] * cols for _ in range(rows)]
+
+    def carve(cx, cy):
+        dirs = [(0, -2), (0, 2), (-2, 0), (2, 0)]
+        random.shuffle(dirs)
+        for dx, dy in dirs:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < cols and 0 <= ny < rows and grid[ny][nx] == 1:
+                grid[cy + dy // 2][cx + dx // 2] = 0
+                grid[ny][nx] = 0
+                carve(nx, ny)
+
+    grid[1][1] = 0
+    carve(1, 1)
+    return grid
+
+
