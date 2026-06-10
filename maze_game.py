@@ -141,3 +141,76 @@ class SoulOrb:
         pygame.draw.circle(surf, C_SOUL_B, (cx, cy), r)
         pygame.draw.circle(surf, (240, 248, 255), (cx, cy), max(3, r - 3))
 
+
+
+class Coin:
+    def __init__(self, tile_x, tile_y):
+        self.tile = (tile_x, tile_y)
+        self.collected = False
+        self.pulse = random.uniform(0, 2 * math.pi)
+
+    def update(self):
+        self.pulse = (self.pulse + 0.05) % (2 * math.pi)
+
+    def draw(self, surf, hud_offset):
+        if self.collected:
+            return
+        cx = self.tile[0] * TILE + TILE // 2
+        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+        r  = int(5 + 2 * math.sin(self.pulse))
+        pygame.draw.circle(surf, C_COIN, (cx, cy), r)
+        pygame.draw.circle(surf, (255, 240, 160), (cx, cy), max(2, r - 2))
+
+
+class Player:
+    def __init__(self, tile_x, tile_y):
+        self.tile = [tile_x, tile_y]
+        self.hp   = PLAYER_MAX_HP
+        self.score = 0
+        self.dropped_souls = 0
+        self.move_cd  = 0
+        self.dmg_flash = 0
+        self.pulse = 0.0
+
+    def move(self, dx, dy, grid):
+        if self.move_cd > 0:
+            return
+        nx = self.tile[0] + dx
+        ny = self.tile[1] + dy
+        if 0 <= nx < len(grid[0]) and 0 <= ny < len(grid) and grid[ny][nx] == 0:
+            self.tile[0] = nx
+            self.tile[1] = ny
+            self.move_cd = PLAYER_SPEED
+
+    def update(self):
+        if self.move_cd > 0:
+            self.move_cd -= 1
+        if self.dmg_flash > 0:
+            self.dmg_flash -= 1
+        self.pulse = (self.pulse + 0.07) % (2 * math.pi)
+
+    def take_damage(self, amount):
+        self.hp -= amount
+        self.dmg_flash = 15
+
+    def draw(self, surf, hud_offset):
+        cx = self.tile[0] * TILE + TILE // 2
+        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+
+        if self.dmg_flash > 0:
+            glow_s = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_s, (255, 80, 80, 100), (TILE, TILE), 18)
+            surf.blit(glow_s, (cx - TILE, cy - TILE))
+
+        color = C_PLAYER if self.dmg_flash == 0 else (255, 150, 150)
+        pygame.draw.circle(surf, color, (cx, cy), 10)
+        pygame.draw.circle(surf, (100, 120, 180), (cx, cy), 10, 2)
+        pygame.draw.circle(surf, C_PLAYER_EYE, (cx - 3, cy - 2), 2)
+        pygame.draw.circle(surf, C_PLAYER_EYE, (cx + 3, cy - 2), 2)
+
+        if self.dropped_souls > 0:
+            r = int(12 + 3 * math.sin(self.pulse))
+            aura = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
+            pygame.draw.circle(aura, (*C_SOUL_A, 50), (TILE, TILE), r)
+            surf.blit(aura, (cx - TILE, cy - TILE))
+
