@@ -214,3 +214,111 @@ class Player:
             pygame.draw.circle(aura, (*C_SOUL_A, 50), (TILE, TILE), r)
             surf.blit(aura, (cx - TILE, cy - TILE))
 
+
+
+
+class Enemy:
+    def __init__(self, tile_x, tile_y):
+        self.tile  = [tile_x, tile_y]
+        self.path  = []
+        self.path_timer = 0
+        self.move_cd = 8
+        self.pulse   = random.uniform(0, math.pi * 2)
+
+    def update(self, grid, player_tile, occupied_tiles):
+        self.pulse = (self.pulse + 0.09) % (2 * math.pi)
+        if self.move_cd > 0:
+            self.move_cd -= 1
+
+        self.path_timer -= 1
+        if self.path_timer <= 0:
+            self.path = astar(grid, tuple(self.tile), tuple(player_tile))
+            self.path_timer = ENEMY_A_STAR_INTERVAL
+
+        if self.move_cd <= 0 and self.path:
+            next_tile = self.path[0]
+            if list(next_tile) != self.tile:
+                if next_tile not in occupied_tiles:
+                    self.tile = list(next_tile)
+                    self.path.pop(0)
+                    self.move_cd = 8
+            else:
+                self.path.pop(0)
+                self.move_cd = 8
+
+    def draw(self, surf, hud_offset):
+        cx = self.tile[0] * TILE + TILE // 2
+        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+        glow_s = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
+        gr = int(14 + 4 * math.sin(self.pulse))
+        pygame.draw.circle(glow_s, (200, 30, 30, 60), (TILE, TILE), gr)
+        surf.blit(glow_s, (cx - TILE, cy - TILE))
+        pygame.draw.rect(surf, (80, 20, 20), (cx - 9, cy - 9, 18, 18), border_radius=3)
+        pygame.draw.rect(surf, C_ENEMY,     (cx - 9, cy - 9, 18, 18), 2, border_radius=3)
+        eye_r = int(2 + math.sin(self.pulse))
+        pygame.draw.circle(surf, C_ENEMY_EYE, (cx - 3, cy - 2), eye_r)
+        pygame.draw.circle(surf, C_ENEMY_EYE, (cx + 3, cy - 2), eye_r)
+
+
+
+def draw_hud(surf, player, level, font, small_font, soul_orb, hud_rect):
+    pygame.draw.rect(surf, C_HUD_BG, hud_rect)
+    pygame.draw.line(surf, (50, 50, 70),
+                     (0, hud_rect.bottom - 1), (hud_rect.right, hud_rect.bottom - 1), 1)
+
+    bar_x, bar_y = 12, 14
+    bar_w, bar_h = 160, 14
+    hp_pct = player.hp / PLAYER_MAX_HP
+    pygame.draw.rect(surf, C_HP_BG,  (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+    pygame.draw.rect(surf, C_HP_BAR, (bar_x, bar_y, int(bar_w * hp_pct), bar_h), border_radius=4)
+    pygame.draw.rect(surf, (180, 60, 60), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
+    hp_label = small_font.render(f"Health: {player.hp} / {PLAYER_MAX_HP}", True, (220, 170, 170))
+    surf.blit(hp_label, (bar_x + 4, bar_y))
+
+    score_txt = font.render(f"Score: {player.score}", True, C_SCORE_TXT)
+    surf.blit(score_txt, (200, 10))
+
+    if soul_orb and soul_orb.active:
+        r = int(8 + 2 * math.sin(soul_orb.pulse))
+        sx, sy = 200, 40
+        glow = pygame.Surface((40, 30), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (*C_SOUL_A, 80), (15, 15), r + 4)
+        surf.blit(glow, (sx - 5, sy - 5))
+        pygame.draw.circle(surf, C_SOUL_B, (sx + 10, sy + 7), r)
+        soul_txt = small_font.render(f"Lost Souls: {soul_orb.value}  (Return to recover!)", True, C_SOUL_B)
+        surf.blit(soul_txt, (sx + 22, sy))
+
+    lvl_txt = font.render(f"Level {level}", True, C_EXIT)
+    surf.blit(lvl_txt, (surf.get_width() - 110, 10))
+
+
+def draw_centered_text(surf, text, font, color, cy, shadow=True):
+    if shadow:
+        s = font.render(text, True, (0, 0, 0))
+        surf.blit(s, (surf.get_width() // 2 - s.get_width() // 2 + 2, cy + 2))
+    t = font.render(text, True, color)
+    surf.blit(t, (surf.get_width() // 2 - t.get_width() // 2, cy))
+
+
+def draw_menu(surf, big_font, med_font, small_font, tick):
+    surf.fill(C_BG)
+    for y in range(0, surf.get_height(), TILE):
+        for x in range(0, surf.get_width(), TILE):
+            if (x // TILE + y // TILE) % 2 == 0:
+                pygame.draw.rect(surf, C_FLOOR2, (x, y, TILE, TILE))
+
+    title_y = surf.get_height() // 2 - 100
+    glow_r = int(180 + 30 * math.sin(tick * 0.05))
+    glow_surf = pygame.Surface((500, 100), pygame.SRCALPHA)
+    pygame.draw.ellipse(glow_surf, (*C_MENU_GLOW, 40), (0, 0, 500, 100))
+    surf.blit(glow_surf, (surf.get_width() // 2 - 250, title_y - 10))
+
+    draw_centered_text(surf, "MAZE GAME", big_font, C_WHITE, title_y)
+    draw_centered_text(surf, "Inspired by the great Hidetaka Miyazaki.", med_font, (150, 150, 180), title_y + 55)
+
+    blink = (tick // 30) % 2 == 0
+    if blink:
+        draw_centered_text(surf, "Press  ENTER  to Start", small_font, C_GOLD, title_y + 110)
+
+    draw_centered_text(surf, "Move: WASD / Arrow Keys     Collect Coins     Reach the Exit     Avoid Enemies",
+                       small_font, (100, 100, 130), surf.get_height() - 36)
