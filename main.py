@@ -10,12 +10,15 @@ from enum import Enum, auto
 
 
 TILE  = 32
+def S(val):
+    return max(1, int(val * TILE / 32))
+
 FPS   = 60
 
 BASE_MAZE_W = 21
 BASE_MAZE_H = 15
 
-HUD_HEIGHT = 64
+HUD_HEIGHT = 180
 
 
 C_BG          = (10,  10,  15)
@@ -144,12 +147,12 @@ class SoulOrb:
             return
         cx = self.tile[0] * TILE + TILE // 2
         cy = self.tile[1] * TILE + TILE // 2 + hud_offset
-        r  = int(7 + 3 * math.sin(self.pulse))
+        r  = S(7 + 3 * math.sin(self.pulse))
         glow_surf = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (*C_SOUL_A, 60), (TILE, TILE), r + 6)
+        pygame.draw.circle(glow_surf, (*C_SOUL_A, 60), (TILE, TILE), r + S(6))
         surf.blit(glow_surf, (cx - TILE, cy - TILE))
         pygame.draw.circle(surf, C_SOUL_B, (cx, cy), r)
-        pygame.draw.circle(surf, (240, 248, 255), (cx, cy), max(3, r - 3))
+        pygame.draw.circle(surf, (240, 248, 255), (cx, cy), max(S(3), r - S(3)))
 
 
 class Coin:
@@ -166,9 +169,9 @@ class Coin:
             return
         cx = self.tile[0] * TILE + TILE // 2
         cy = self.tile[1] * TILE + TILE // 2 + hud_offset
-        r  = int(5 + 2 * math.sin(self.pulse))
+        r  = S(5 + 2 * math.sin(self.pulse))
         pygame.draw.circle(surf, C_COIN, (cx, cy), r)
-        pygame.draw.circle(surf, (255, 240, 160), (cx, cy), max(2, r - 2))
+        pygame.draw.circle(surf, (255, 240, 160), (cx, cy), max(S(2), r - S(2)))
 
 
 class Player:
@@ -208,17 +211,17 @@ class Player:
 
         if self.dmg_flash > 0:
             glow_s = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_s, (255, 80, 80, 100), (TILE, TILE), 18)
+            pygame.draw.circle(glow_s, (255, 80, 80, 100), (TILE, TILE), S(18))
             surf.blit(glow_s, (cx - TILE, cy - TILE))
 
         color = C_PLAYER if self.dmg_flash == 0 else (255, 150, 150)
-        pygame.draw.circle(surf, color, (cx, cy), 10)
-        pygame.draw.circle(surf, (100, 120, 180), (cx, cy), 10, 2)
-        pygame.draw.circle(surf, C_PLAYER_EYE, (cx - 3, cy - 2), 2)
-        pygame.draw.circle(surf, C_PLAYER_EYE, (cx + 3, cy - 2), 2)
+        pygame.draw.circle(surf, color, (cx, cy), S(10))
+        pygame.draw.circle(surf, (100, 120, 180), (cx, cy), S(10), S(2))
+        pygame.draw.circle(surf, C_PLAYER_EYE, (cx - S(3), cy - S(2)), S(2))
+        pygame.draw.circle(surf, C_PLAYER_EYE, (cx + S(3), cy - S(2)), S(2))
 
         if self.dropped_souls > 0:
-            r = int(12 + 3 * math.sin(self.pulse))
+            r = S(12 + 3 * math.sin(self.pulse))
             aura = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
             pygame.draw.circle(aura, (*C_SOUL_A, 50), (TILE, TILE), r)
             surf.blit(aura, (cx - TILE, cy - TILE))
@@ -258,14 +261,14 @@ class Enemy:
         cx = self.tile[0] * TILE + TILE // 2
         cy = self.tile[1] * TILE + TILE // 2 + hud_offset
         glow_s = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
-        gr = int(14 + 4 * math.sin(self.pulse))
+        gr = S(14 + 4 * math.sin(self.pulse))
         pygame.draw.circle(glow_s, (200, 30, 30, 60), (TILE, TILE), gr)
         surf.blit(glow_s, (cx - TILE, cy - TILE))
-        pygame.draw.rect(surf, (80, 20, 20), (cx - 9, cy - 9, 18, 18), border_radius=3)
-        pygame.draw.rect(surf, C_ENEMY,     (cx - 9, cy - 9, 18, 18), 2, border_radius=3)
-        eye_r = int(2 + math.sin(self.pulse))
-        pygame.draw.circle(surf, C_ENEMY_EYE, (cx - 3, cy - 2), eye_r)
-        pygame.draw.circle(surf, C_ENEMY_EYE, (cx + 3, cy - 2), eye_r)
+        pygame.draw.rect(surf, (80, 20, 20), (cx - S(9), cy - S(9), S(18), S(18)), border_radius=S(3))
+        pygame.draw.rect(surf, C_ENEMY,     (cx - S(9), cy - S(9), S(18), S(18)), S(2), border_radius=S(3))
+        eye_r = S(2 + math.sin(self.pulse))
+        pygame.draw.circle(surf, C_ENEMY_EYE, (cx - S(3), cy - S(2)), eye_r)
+        pygame.draw.circle(surf, C_ENEMY_EYE, (cx + S(3), cy - S(2)), eye_r)
 
 
 
@@ -274,30 +277,30 @@ def draw_hud(surf, player, level, font, small_font, soul_orb, hud_rect):
     pygame.draw.line(surf, (50, 50, 70),
                      (0, hud_rect.bottom - 1), (hud_rect.right, hud_rect.bottom - 1), 1)
 
-    bar_x, bar_y = 12, 14
-    bar_w, bar_h = 160, 14
+    bar_x, bar_y = 30, 30
+    bar_w, bar_h = 400, 40
     hp_pct = player.hp / PLAYER_MAX_HP
-    pygame.draw.rect(surf, C_HP_BG,  (bar_x, bar_y, bar_w, bar_h), border_radius=4)
-    pygame.draw.rect(surf, C_HP_BAR, (bar_x, bar_y, int(bar_w * hp_pct), bar_h), border_radius=4)
-    pygame.draw.rect(surf, (180, 60, 60), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
+    pygame.draw.rect(surf, C_HP_BG,  (bar_x, bar_y, bar_w, bar_h), border_radius=8)
+    pygame.draw.rect(surf, C_HP_BAR, (bar_x, bar_y, int(bar_w * hp_pct), bar_h), border_radius=8)
+    pygame.draw.rect(surf, (180, 60, 60), (bar_x, bar_y, bar_w, bar_h), 2, border_radius=8)
     hp_label = small_font.render(f"Health: {player.hp} / {PLAYER_MAX_HP}", True, (220, 170, 170))
-    surf.blit(hp_label, (bar_x + 4, bar_y))
+    surf.blit(hp_label, (bar_x + 10, bar_y - 2))
 
     score_txt = font.render(f"Score: {player.score}", True, C_SCORE_TXT)
-    surf.blit(score_txt, (200, 10))
+    surf.blit(score_txt, (600, 20))
 
     if soul_orb and soul_orb.active:
-        r = int(8 + 2 * math.sin(soul_orb.pulse))
-        sx, sy = 200, 40
-        glow = pygame.Surface((40, 30), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (*C_SOUL_A, 80), (15, 15), r + 4)
-        surf.blit(glow, (sx - 5, sy - 5))
-        pygame.draw.circle(surf, C_SOUL_B, (sx + 10, sy + 7), r)
+        r = S(8 + 2 * math.sin(soul_orb.pulse))
+        sx, sy = 600, 100
+        glow = pygame.Surface((100, 100), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (*C_SOUL_A, 80), (50, 50), r + S(4))
+        surf.blit(glow, (sx - 50, sy - 50))
+        pygame.draw.circle(surf, C_SOUL_B, (sx, sy), r)
         soul_txt = small_font.render(f"Lost Souls: {soul_orb.value}  (Return to recover!)", True, C_SOUL_B)
-        surf.blit(soul_txt, (sx + 22, sy))
+        surf.blit(soul_txt, (sx + 40, sy - 20))
 
     lvl_txt = font.render(f"Level {level}", True, C_EXIT)
-    surf.blit(lvl_txt, (surf.get_width() - 110, 10))
+    surf.blit(lvl_txt, (surf.get_width() - 300, 20))
 
 
 def draw_centered_text(surf, text, font, color, cy, shadow=True):
@@ -315,21 +318,21 @@ def draw_menu(surf, big_font, med_font, small_font, tick):
             if (x // TILE + y // TILE) % 2 == 0:
                 pygame.draw.rect(surf, C_FLOOR2, (x, y, TILE, TILE))
 
-    title_y = surf.get_height() // 2 - 100
-    glow_r = int(180 + 30 * math.sin(tick * 0.05))
-    glow_surf = pygame.Surface((500, 100), pygame.SRCALPHA)
-    pygame.draw.ellipse(glow_surf, (*C_MENU_GLOW, 40), (0, 0, 500, 100))
-    surf.blit(glow_surf, (surf.get_width() // 2 - 250, title_y - 10))
+    title_y = surf.get_height() // 2 - 200
+    glow_r = int(300 + 50 * math.sin(tick * 0.05))
+    glow_surf = pygame.Surface((1000, 200), pygame.SRCALPHA)
+    pygame.draw.ellipse(glow_surf, (*C_MENU_GLOW, 40), (0, 0, 1000, 200))
+    surf.blit(glow_surf, (surf.get_width() // 2 - 500, title_y - 20))
 
     draw_centered_text(surf, "HOLLOW-HUNGER", big_font, C_WHITE, title_y)
-    draw_centered_text(surf, "Inspired by the great Hidetaka Miyazaki.", med_font, (150, 150, 180), title_y + 55)
+    draw_centered_text(surf, "Inspired by the great Hidetaka Miyazaki.", med_font, (150, 150, 180), title_y + 120)
 
     blink = (tick // 30) % 2 == 0
     if blink:
-        draw_centered_text(surf, "Press  ENTER  to Start", small_font, C_GOLD, title_y + 110)
+        draw_centered_text(surf, "Press  ENTER  to Start", small_font, C_GOLD, title_y + 240)
 
     draw_centered_text(surf, "Move: WASD / Arrow Keys     Collect Coins     Reach the Exit     Avoid Enemies",
-                       small_font, (100, 100, 130), surf.get_height() - 36)
+                       small_font, (100, 100, 130), surf.get_height() - 80)
 
 
 def draw_you_died(surf, big_font, med_font, alpha):
@@ -339,52 +342,52 @@ def draw_you_died(surf, big_font, med_font, alpha):
 
     a_clamped = min(255, alpha)
     col = (min(255, a_clamped), max(0, 60 - alpha // 4), max(0, 60 - alpha // 4))
-    draw_centered_text(surf, "Y O U   D I E D", big_font, col, surf.get_height() // 2 - 40)
+    draw_centered_text(surf, "Y O U   D I E D", big_font, col, surf.get_height() // 2 - 100)
     if alpha > 180:
         draw_centered_text(surf, "Your souls dropped at the death spot — go back to recover them!",
-                           med_font, (180, 100, 100), surf.get_height() // 2 + 30)
+                           med_font, (180, 100, 100), surf.get_height() // 2 + 60)
 
 
 def draw_level_clear(surf, big_font, med_font, alpha, level):
     overlay = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, min(180, alpha)))
     surf.blit(overlay, (0, 0))
-    draw_centered_text(surf, "LEVEL CLEARED!", big_font, C_EXIT, surf.get_height() // 2 - 40)
+    draw_centered_text(surf, "LEVEL CLEARED!", big_font, C_EXIT, surf.get_height() // 2 - 100)
     if alpha > 120:
         draw_centered_text(surf, f"Proceeding to Level {level + 1}...",
-                           med_font, (180, 255, 210), surf.get_height() // 2 + 30)
+                           med_font, (180, 255, 210), surf.get_height() // 2 + 60)
 
 
 def draw_game_over(surf, big_font, med_font, small_font, score):
     surf.fill(C_BG)
-    draw_centered_text(surf, "GAME OVER", big_font, C_RED, surf.get_height() // 2 - 80)
+    draw_centered_text(surf, "GAME OVER", big_font, C_RED, surf.get_height() // 2 - 200)
     draw_centered_text(surf, f"Your Final Score:  {score}", med_font, C_SCORE_TXT,
-                       surf.get_height() // 2 - 10)
+                       surf.get_height() // 2 - 50)
     draw_centered_text(surf, "Press R to Play Again   |   Press ESC to Quit",
-                       small_font, (140, 140, 160), surf.get_height() // 2 + 50)
+                       small_font, (140, 140, 160), surf.get_height() // 2 + 100)
 
 
 def draw_dpad(surf):
     sw, sh = surf.get_width(), surf.get_height()
-    cx, cy = 100, sh - 100
-    off = 45
-    r = 30
+    cx, cy = 250, sh - 250
+    off = 100
+    r = 70
     
-    dpad_surf = pygame.Surface((200, 200), pygame.SRCALPHA)
+    dpad_surf = pygame.Surface((500, 500), pygame.SRCALPHA)
     
     def draw_btn(bx, by, label):
         pygame.draw.circle(dpad_surf, (200, 200, 200, 60), (bx, by), r)
-        pygame.draw.circle(dpad_surf, (255, 255, 255, 100), (bx, by), r, 2)
-        font = pygame.font.SysFont("consolas", 20, bold=True)
+        pygame.draw.circle(dpad_surf, (255, 255, 255, 100), (bx, by), r, 4)
+        font = pygame.font.SysFont("consolas", 60, bold=True)
         txt = font.render(label, True, (255, 255, 255, 150))
         dpad_surf.blit(txt, (bx - txt.get_width()//2, by - txt.get_height()//2))
 
-    draw_btn(100, 100 - off, "W")
-    draw_btn(100, 100 + off, "S")
-    draw_btn(100 - off, 100, "A")
-    draw_btn(100 + off, 100, "D")
+    draw_btn(250, 250 - off, "W")
+    draw_btn(250, 250 + off, "S")
+    draw_btn(250 - off, 250, "A")
+    draw_btn(250 + off, 250, "D")
     
-    surf.blit(dpad_surf, (cx - 100, cy - 100))
+    surf.blit(dpad_surf, (cx - 250, cy - 250))
 
 
 class ExitPortal:
@@ -398,13 +401,13 @@ class ExitPortal:
     def draw(self, surf, hud_offset):
         cx = self.tile[0] * TILE + TILE // 2
         cy = self.tile[1] * TILE + TILE // 2 + hud_offset
-        r  = int(11 + 4 * math.sin(self.pulse))
+        r  = S(11 + 4 * math.sin(self.pulse))
 
         glow = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (*C_EXIT, 60), (TILE, TILE), r + 6)
+        pygame.draw.circle(glow, (*C_EXIT, 60), (TILE, TILE), r + S(6))
         surf.blit(glow, (cx - TILE, cy - TILE))
         pygame.draw.circle(surf, C_EXIT, (cx, cy), r)
-        pygame.draw.circle(surf, (220, 255, 245), (cx, cy), max(4, r - 4))
+        pygame.draw.circle(surf, (220, 255, 245), (cx, cy), max(S(4), r - S(4)))
 
 
 
@@ -417,17 +420,22 @@ class Game:
         self.base_h = BASE_MAZE_H
 
         self.screen = pygame.display.set_mode(
-            (self.base_w * TILE, self.base_h * TILE + HUD_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
+            (3840, 2160), pygame.FULLSCREEN | pygame.SCALED)
 
         self.clock    = pygame.time.Clock()
-        self.big_font  = pygame.font.SysFont("consolas", 48, bold=True)
-        self.med_font  = pygame.font.SysFont("consolas", 26, bold=True)
-        self.small_font= pygame.font.SysFont("consolas", 16)
-        self.font      = pygame.font.SysFont("consolas", 20, bold=True)
+        self.big_font  = pygame.font.SysFont("consolas", 120, bold=True)
+        self.med_font  = pygame.font.SysFont("consolas", 60, bold=True)
+        self.small_font= pygame.font.SysFont("consolas", 40)
+        self.font      = pygame.font.SysFont("consolas", 50, bold=True)
 
         self.level = 1
         self.state = GameState.MENU
         self.tick  = 0
+        try:
+            pygame.mixer.music.load("onecinematicstudio-shadow-of-the-forsaken-_-dark-gothic-fantasy-music-529037.ogg")
+            pygame.mixer.music.play(-1)
+        except Exception as e:
+            print("Could not load menu music:", e)
         self.overlay_alpha = 0
         self.touches = {}
         self.show_dpad = False
@@ -450,8 +458,8 @@ class Game:
         if cols % 2 == 0: cols += 1
         if rows % 2 == 0: rows += 1
 
-        self.screen = pygame.display.set_mode(
-            (cols * TILE, rows * TILE + HUD_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
+        global TILE
+        TILE = min(3840 // cols, (2160 - HUD_HEIGHT) // rows)
 
         sys.setrecursionlimit(cols * rows * 4)
         self.grid = generate_maze(cols, rows)
@@ -530,6 +538,11 @@ class Game:
                         self.level = 1
                         self.load_level()
                         self.state = GameState.PLAYING
+                        try:
+                            pygame.mixer.music.load("hitslab-scary-horror-dark-music-385468.ogg")
+                            pygame.mixer.music.play(-1)
+                        except Exception as e:
+                            print("Could not load gameplay music:", e)
 
                 elif self.state == GameState.PLAYING:
                     if event.key == pygame.K_h and self.player:
@@ -546,6 +559,11 @@ class Game:
                     self.level = 1
                     self.load_level()
                     self.state = GameState.PLAYING
+                    try:
+                        pygame.mixer.music.load("hitslab-scary-horror-dark-music-385468.ogg")
+                        pygame.mixer.music.play(-1)
+                    except Exception as e:
+                        print("Could not load gameplay music:", e)
                 elif self.state == GameState.GAME_OVER:
                     self.level = 1
                     self.load_level()
@@ -560,9 +578,9 @@ class Game:
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:  dy =  1
 
         sw, sh = self.screen.get_width(), self.screen.get_height()
-        cx, cy = 100, sh - 100
-        off = 45
-        r = 30
+        cx, cy = 250, sh - 250
+        off = 100
+        r = 70
 
         def check_pos(px, py):
             nonlocal dx, dy
