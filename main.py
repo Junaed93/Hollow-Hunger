@@ -5,6 +5,7 @@ import sys
 import random
 import math
 import heapq
+import asyncio
 from enum import Enum, auto
 
 
@@ -363,6 +364,29 @@ def draw_game_over(surf, big_font, med_font, small_font, score):
                        small_font, (140, 140, 160), surf.get_height() // 2 + 50)
 
 
+def draw_dpad(surf):
+    sw, sh = surf.get_width(), surf.get_height()
+    cx, cy = 100, sh - 100
+    off = 45
+    r = 30
+    
+    dpad_surf = pygame.Surface((200, 200), pygame.SRCALPHA)
+    
+    def draw_btn(bx, by, label):
+        pygame.draw.circle(dpad_surf, (200, 200, 200, 60), (bx, by), r)
+        pygame.draw.circle(dpad_surf, (255, 255, 255, 100), (bx, by), r, 2)
+        font = pygame.font.SysFont("consolas", 20, bold=True)
+        txt = font.render(label, True, (255, 255, 255, 150))
+        dpad_surf.blit(txt, (bx - txt.get_width()//2, by - txt.get_height()//2))
+
+    draw_btn(100, 100 - off, "W")
+    draw_btn(100, 100 + off, "S")
+    draw_btn(100 - off, 100, "A")
+    draw_btn(100 + off, 100, "D")
+    
+    surf.blit(dpad_surf, (cx - 100, cy - 100))
+
+
 class ExitPortal:
     def __init__(self, tile_x, tile_y):
         self.tile  = (tile_x, tile_y)
@@ -405,6 +429,8 @@ class Game:
         self.state = GameState.MENU
         self.tick  = 0
         self.overlay_alpha = 0
+        self.touches = {}
+        self.show_dpad = False
 
         self.grid    = []
         self.player  = None
@@ -465,13 +491,14 @@ class Game:
 
 
 
-    def run(self):
+    async def run(self):
         while True:
             dt = self.clock.tick(FPS)
             self.tick += 1
             self._handle_events()
             self._update()
             self._draw()
+            await asyncio.sleep(0)
 
 
 
@@ -480,8 +507,20 @@ class Game:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+                
+            ftype = getattr(event, 'type', None)
+            
+            if ftype == getattr(pygame, 'FINGERDOWN', None) or ftype == getattr(pygame, 'FINGERMOTION', None):
+                self.show_dpad = True
+                sw, sh = self.screen.get_width(), self.screen.get_height()
+                self.touches[event.finger_id] = (event.x * sw, event.y * sh)
+            elif ftype == getattr(pygame, 'FINGERUP', None):
+                self.touches.pop(event.finger_id, None)
+
+            is_tap = (ftype == pygame.MOUSEBUTTONDOWN or ftype == getattr(pygame, 'FINGERDOWN', None))
 
             if event.type == pygame.KEYDOWN:
+                self.show_dpad = False
                 if event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
@@ -493,7 +532,6 @@ class Game:
                         self.state = GameState.PLAYING
 
                 elif self.state == GameState.PLAYING:
-                    # Cheat: H = full health regen
                     if event.key == pygame.K_h and self.player:
                         self.player.hp = PLAYER_MAX_HP
 
@@ -502,6 +540,16 @@ class Game:
                         self.level = 1
                         self.load_level()
                         self.state = GameState.PLAYING
+                        
+            if is_tap:
+                if self.state == GameState.MENU:
+                    self.level = 1
+                    self.load_level()
+                    self.state = GameState.PLAYING
+                elif self.state == GameState.GAME_OVER:
+                    self.level = 1
+                    self.load_level()
+                    self.state = GameState.PLAYING
 
     def _get_move_input(self):
         keys = pygame.key.get_pressed()
@@ -510,6 +558,27 @@ class Game:
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]: dx =  1
         if keys[pygame.K_w] or keys[pygame.K_UP]:    dy = -1
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:  dy =  1
+
+        sw, sh = self.screen.get_width(), self.screen.get_height()
+        cx, cy = 100, sh - 100
+        off = 45
+        r = 30
+
+        def check_pos(px, py):
+            nonlocal dx, dy
+            if math.hypot(px - cx, py - (cy - off)) < r: dy = -1
+            elif math.hypot(px - cx, py - (cy + off)) < r: dy = 1
+            elif math.hypot(px - (cx - off), py - cy) < r: dx = -1
+            elif math.hypot(px - (cx + off), py - cy) < r: dx = 1
+
+        if self.show_dpad:
+            if pygame.mouse.get_pressed()[0]:
+                mx, my = pygame.mouse.get_pos()
+                check_pos(mx, my)
+
+            for px, py in self.touches.values():
+                check_pos(px, py)
+
         return dx, dy
 
 
@@ -636,8 +705,12 @@ class Game:
         draw_hud(surf, self.player, self.level, self.font, self.small_font,
                  self.soul_orb, hud_rect)
 
+        if self.state == GameState.PLAYING and self.show_dpad:
+            draw_dpad(surf)
+
         if self.state == GameState.DEAD_SCREEN:
             draw_you_died(surf, self.big_font, self.med_font, self.overlay_alpha)
+            
 
         if self.state == GameState.LEVEL_CLEAR:
             draw_level_clear(surf, self.big_font, self.med_font, self.overlay_alpha, self.level)
@@ -647,5 +720,5 @@ class Game:
 
 
 if __name__ == "__main__":
-    Game().run()
+    asyncio.run(Game().run())
 
