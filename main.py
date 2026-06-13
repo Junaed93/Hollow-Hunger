@@ -2,11 +2,17 @@
 
 import pygame
 import sys
+import os
 import random
 import math
 import heapq
 import asyncio
 from enum import Enum, auto
+
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return relative_path
 
 
 TILE  = 32
@@ -463,7 +469,7 @@ class Game:
         self.state = GameState.MENU
         self.tick  = 0
         try:
-            pygame.mixer.music.load("onecinematicstudio-shadow-of-the-forsaken-_-dark-gothic-fantasy-music-529037.ogg")
+            pygame.mixer.music.load(resource_path("onecinematicstudio-shadow-of-the-forsaken-_-dark-gothic-fantasy-music-529037.ogg"))
             pygame.mixer.music.play(-1)
         except Exception as e:
             print("Could not load menu music:", e)
@@ -483,10 +489,10 @@ class Game:
         self.sprites = {}
         try:
             import os
-            if os.path.exists("assets/player.png"):
-                self.raw_sprites['player'] = clean_sprite_bg(pygame.image.load("assets/player.png"))
-                self.raw_sprites['enemy'] = clean_sprite_bg(pygame.image.load("assets/enemy.png"))
-                self.raw_sprites['coin'] = clean_sprite_bg(pygame.image.load("assets/coin.png"))
+            if os.path.exists(resource_path("assets/player.png")):
+                self.raw_sprites['player'] = clean_sprite_bg(pygame.image.load(resource_path("assets/player.png")))
+                self.raw_sprites['enemy'] = clean_sprite_bg(pygame.image.load(resource_path("assets/enemy.png")))
+                self.raw_sprites['coin'] = clean_sprite_bg(pygame.image.load(resource_path("assets/coin.png")))
         except Exception as e:
             print("Could not load sprites:", e)
 
@@ -585,7 +591,7 @@ class Game:
                         self.load_level()
                         self.state = GameState.PLAYING
                         try:
-                            pygame.mixer.music.load("hitslab-scary-horror-dark-music-385468.ogg")
+                            pygame.mixer.music.load(resource_path("hitslab-scary-horror-dark-music-385468.ogg"))
                             pygame.mixer.music.play(-1)
                         except Exception as e:
                             print("Could not load gameplay music:", e)
@@ -606,7 +612,7 @@ class Game:
                     self.load_level()
                     self.state = GameState.PLAYING
                     try:
-                        pygame.mixer.music.load("hitslab-scary-horror-dark-music-385468.ogg")
+                        pygame.mixer.music.load(resource_path("hitslab-scary-horror-dark-music-385468.ogg"))
                         pygame.mixer.music.play(-1)
                     except Exception as e:
                         print("Could not load gameplay music:", e)
