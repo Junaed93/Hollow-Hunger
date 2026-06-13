@@ -18,7 +18,7 @@ FPS   = 60
 BASE_MAZE_W = 21
 BASE_MAZE_H = 15
 
-HUD_HEIGHT = 180
+HUD_HEIGHT = 100
 
 
 C_BG          = (10,  10,  15)
@@ -60,6 +60,15 @@ class GameState(Enum):
     DEAD_SCREEN = auto()
     LEVEL_CLEAR = auto()
     GAME_OVER   = auto()
+
+def clean_sprite_bg(img, threshold=30):
+    img = img.convert_alpha()
+    for x in range(img.get_width()):
+        for y in range(img.get_height()):
+            r, g, b, a = img.get_at((x, y))
+            if r < threshold and g < threshold and b < threshold:
+                img.set_at((x, y), (0, 0, 0, 0))
+    return img
 
 
 def generate_maze(cols, rows):
@@ -142,11 +151,11 @@ class SoulOrb:
     def update(self):
         self.pulse = (self.pulse + 0.08) % (2 * math.pi)
 
-    def draw(self, surf, hud_offset):
+    def draw(self, surf, offset_x, offset_y):
         if not self.active:
             return
-        cx = self.tile[0] * TILE + TILE // 2
-        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+        cx = self.tile[0] * TILE + TILE // 2 + offset_x
+        cy = self.tile[1] * TILE + TILE // 2 + offset_y
         r  = S(7 + 3 * math.sin(self.pulse))
         glow_surf = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
         pygame.draw.circle(glow_surf, (*C_SOUL_A, 60), (TILE, TILE), r + S(6))
@@ -164,14 +173,18 @@ class Coin:
     def update(self):
         self.pulse = (self.pulse + 0.05) % (2 * math.pi)
 
-    def draw(self, surf, hud_offset):
+    def draw(self, surf, offset_x, offset_y, sprite=None):
         if self.collected:
             return
-        cx = self.tile[0] * TILE + TILE // 2
-        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
-        r  = S(5 + 2 * math.sin(self.pulse))
-        pygame.draw.circle(surf, C_COIN, (cx, cy), r)
-        pygame.draw.circle(surf, (255, 240, 160), (cx, cy), max(S(2), r - S(2)))
+        cx = self.tile[0] * TILE + TILE // 2 + offset_x
+        cy = self.tile[1] * TILE + TILE // 2 + offset_y
+        
+        if sprite:
+            surf.blit(sprite, (self.tile[0] * TILE + offset_x, self.tile[1] * TILE + offset_y))
+        else:
+            r  = S(5 + 2 * math.sin(self.pulse))
+            pygame.draw.circle(surf, C_COIN, (cx, cy), r)
+            pygame.draw.circle(surf, (255, 240, 160), (cx, cy), max(S(2), r - S(2)))
 
 
 class Player:
@@ -205,20 +218,26 @@ class Player:
         self.hp -= amount
         self.dmg_flash = 15
 
-    def draw(self, surf, hud_offset):
-        cx = self.tile[0] * TILE + TILE // 2
-        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+    def draw(self, surf, offset_x, offset_y, sprite=None):
+        cx = self.tile[0] * TILE + TILE // 2 + offset_x
+        cy = self.tile[1] * TILE + TILE // 2 + offset_y
 
         if self.dmg_flash > 0:
             glow_s = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
             pygame.draw.circle(glow_s, (255, 80, 80, 100), (TILE, TILE), S(18))
             surf.blit(glow_s, (cx - TILE, cy - TILE))
 
-        color = C_PLAYER if self.dmg_flash == 0 else (255, 150, 150)
-        pygame.draw.circle(surf, color, (cx, cy), S(10))
-        pygame.draw.circle(surf, (100, 120, 180), (cx, cy), S(10), S(2))
-        pygame.draw.circle(surf, C_PLAYER_EYE, (cx - S(3), cy - S(2)), S(2))
-        pygame.draw.circle(surf, C_PLAYER_EYE, (cx + S(3), cy - S(2)), S(2))
+        if sprite:
+            glow_surf = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (100, 150, 255, 80), (TILE, TILE), S(16))
+            surf.blit(glow_surf, (cx - TILE, cy - TILE))
+            surf.blit(sprite, (self.tile[0] * TILE + offset_x, self.tile[1] * TILE + offset_y))
+        else:
+            color = C_PLAYER if self.dmg_flash == 0 else (255, 150, 150)
+            pygame.draw.circle(surf, color, (cx, cy), S(10))
+            pygame.draw.circle(surf, (100, 120, 180), (cx, cy), S(10), S(2))
+            pygame.draw.circle(surf, C_PLAYER_EYE, (cx - S(3), cy - S(2)), S(2))
+            pygame.draw.circle(surf, C_PLAYER_EYE, (cx + S(3), cy - S(2)), S(2))
 
         if self.dropped_souls > 0:
             r = S(12 + 3 * math.sin(self.pulse))
@@ -257,18 +276,22 @@ class Enemy:
                 self.path.pop(0)
                 self.move_cd = 8
 
-    def draw(self, surf, hud_offset):
-        cx = self.tile[0] * TILE + TILE // 2
-        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+    def draw(self, surf, offset_x, offset_y, sprite=None):
+        cx = self.tile[0] * TILE + TILE // 2 + offset_x
+        cy = self.tile[1] * TILE + TILE // 2 + offset_y
         glow_s = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
         gr = S(14 + 4 * math.sin(self.pulse))
         pygame.draw.circle(glow_s, (200, 30, 30, 60), (TILE, TILE), gr)
         surf.blit(glow_s, (cx - TILE, cy - TILE))
-        pygame.draw.rect(surf, (80, 20, 20), (cx - S(9), cy - S(9), S(18), S(18)), border_radius=S(3))
-        pygame.draw.rect(surf, C_ENEMY,     (cx - S(9), cy - S(9), S(18), S(18)), S(2), border_radius=S(3))
-        eye_r = S(2 + math.sin(self.pulse))
-        pygame.draw.circle(surf, C_ENEMY_EYE, (cx - S(3), cy - S(2)), eye_r)
-        pygame.draw.circle(surf, C_ENEMY_EYE, (cx + S(3), cy - S(2)), eye_r)
+        
+        if sprite:
+            surf.blit(sprite, (self.tile[0] * TILE + offset_x, self.tile[1] * TILE + offset_y))
+        else:
+            pygame.draw.rect(surf, (80, 20, 20), (cx - S(9), cy - S(9), S(18), S(18)), border_radius=S(3))
+            pygame.draw.rect(surf, C_ENEMY,     (cx - S(9), cy - S(9), S(18), S(18)), S(2), border_radius=S(3))
+            eye_r = S(2 + math.sin(self.pulse))
+            pygame.draw.circle(surf, C_ENEMY_EYE, (cx - S(3), cy - S(2)), eye_r)
+            pygame.draw.circle(surf, C_ENEMY_EYE, (cx + S(3), cy - S(2)), eye_r)
 
 
 
@@ -284,23 +307,29 @@ def draw_hud(surf, player, level, font, small_font, soul_orb, hud_rect):
     pygame.draw.rect(surf, C_HP_BAR, (bar_x, bar_y, int(bar_w * hp_pct), bar_h), border_radius=8)
     pygame.draw.rect(surf, (180, 60, 60), (bar_x, bar_y, bar_w, bar_h), 2, border_radius=8)
     hp_label = small_font.render(f"Health: {player.hp} / {PLAYER_MAX_HP}", True, (220, 170, 170))
-    surf.blit(hp_label, (bar_x + 10, bar_y - 2))
+    hp_y = bar_y + (bar_h - hp_label.get_height()) // 2
+    surf.blit(hp_label, (bar_x + 15, hp_y))
 
     score_txt = font.render(f"Score: {player.score}", True, C_SCORE_TXT)
-    surf.blit(score_txt, (600, 20))
+    score_x = (surf.get_width() - score_txt.get_width()) // 2
+    score_y = (hud_rect.height - score_txt.get_height()) // 2
+    surf.blit(score_txt, (score_x, score_y))
 
     if soul_orb and soul_orb.active:
         r = S(8 + 2 * math.sin(soul_orb.pulse))
-        sx, sy = 600, 100
+        soul_txt = small_font.render(f"Lost Souls: {soul_orb.value}  (Return to recover!)", True, C_SOUL_B)
+        sx = (surf.get_width() - soul_txt.get_width() - 30) // 2
+        sy = hud_rect.height - 25
         glow = pygame.Surface((100, 100), pygame.SRCALPHA)
         pygame.draw.circle(glow, (*C_SOUL_A, 80), (50, 50), r + S(4))
         surf.blit(glow, (sx - 50, sy - 50))
         pygame.draw.circle(surf, C_SOUL_B, (sx, sy), r)
-        soul_txt = small_font.render(f"Lost Souls: {soul_orb.value}  (Return to recover!)", True, C_SOUL_B)
-        surf.blit(soul_txt, (sx + 40, sy - 20))
+        surf.blit(soul_txt, (sx + 20, sy - soul_txt.get_height() // 2))
 
     lvl_txt = font.render(f"Level {level}", True, C_EXIT)
-    surf.blit(lvl_txt, (surf.get_width() - 300, 20))
+    lvl_x = surf.get_width() - 30 - lvl_txt.get_width()
+    lvl_y = (hud_rect.height - lvl_txt.get_height()) // 2
+    surf.blit(lvl_txt, (lvl_x, lvl_y))
 
 
 def draw_centered_text(surf, text, font, color, cy, shadow=True):
@@ -344,7 +373,7 @@ def draw_you_died(surf, big_font, med_font, alpha):
     col = (min(255, a_clamped), max(0, 60 - alpha // 4), max(0, 60 - alpha // 4))
     draw_centered_text(surf, "Y O U   D I E D", big_font, col, surf.get_height() // 2 - 100)
     if alpha > 180:
-        draw_centered_text(surf, "Your souls dropped at the death spot — go back to recover them!",
+        draw_centered_text(surf, "Souls drop at last location",
                            med_font, (180, 100, 100), surf.get_height() // 2 + 60)
 
 
@@ -398,9 +427,9 @@ class ExitPortal:
     def update(self):
         self.pulse = (self.pulse + 0.06) % (2 * math.pi)
 
-    def draw(self, surf, hud_offset):
-        cx = self.tile[0] * TILE + TILE // 2
-        cy = self.tile[1] * TILE + TILE // 2 + hud_offset
+    def draw(self, surf, offset_x, offset_y):
+        cx = self.tile[0] * TILE + TILE // 2 + offset_x
+        cy = self.tile[1] * TILE + TILE // 2 + offset_y
         r  = S(11 + 4 * math.sin(self.pulse))
 
         glow = pygame.Surface((TILE * 2, TILE * 2), pygame.SRCALPHA)
@@ -413,6 +442,8 @@ class ExitPortal:
 
 class Game:
     def __init__(self):
+        pygame.mixer.pre_init(44100, -16, 2, 2048)
+        pygame.mixer.init()
         pygame.init()
         pygame.display.set_caption("Hollow-Hunger")
 
@@ -420,13 +451,13 @@ class Game:
         self.base_h = BASE_MAZE_H
 
         self.screen = pygame.display.set_mode(
-            (3840, 2160), pygame.FULLSCREEN | pygame.SCALED)
+            (1920, 1080), pygame.FULLSCREEN | pygame.SCALED)
 
         self.clock    = pygame.time.Clock()
-        self.big_font  = pygame.font.SysFont("consolas", 120, bold=True)
-        self.med_font  = pygame.font.SysFont("consolas", 60, bold=True)
-        self.small_font= pygame.font.SysFont("consolas", 40)
-        self.font      = pygame.font.SysFont("consolas", 50, bold=True)
+        self.big_font  = pygame.font.SysFont("consolas", 70, bold=True)
+        self.med_font  = pygame.font.SysFont("consolas", 40, bold=True)
+        self.small_font= pygame.font.SysFont("consolas", 24)
+        self.font      = pygame.font.SysFont("consolas", 30, bold=True)
 
         self.level = 1
         self.state = GameState.MENU
@@ -448,6 +479,17 @@ class Game:
         self.portal   = None
         self.enemy_damage_timer = {}
 
+        self.raw_sprites = {}
+        self.sprites = {}
+        try:
+            import os
+            if os.path.exists("assets/player.png"):
+                self.raw_sprites['player'] = clean_sprite_bg(pygame.image.load("assets/player.png"))
+                self.raw_sprites['enemy'] = clean_sprite_bg(pygame.image.load("assets/enemy.png"))
+                self.raw_sprites['coin'] = clean_sprite_bg(pygame.image.load("assets/coin.png"))
+        except Exception as e:
+            print("Could not load sprites:", e)
+
 
 
     def load_level(self):
@@ -459,7 +501,11 @@ class Game:
         if rows % 2 == 0: rows += 1
 
         global TILE
-        TILE = min(3840 // cols, (2160 - HUD_HEIGHT) // rows)
+        TILE = min(1920 // cols, (1080 - HUD_HEIGHT) // rows)
+
+        self.sprites = {}
+        for k, img in self.raw_sprites.items():
+            self.sprites[k] = pygame.transform.scale(img, (TILE, TILE))
 
         sys.setrecursionlimit(cols * rows * 4)
         self.grid = generate_maze(cols, rows)
@@ -695,10 +741,14 @@ class Game:
 
         cols = len(self.grid[0])
         rows = len(self.grid)
+        
+        offset_x = (1920 - cols * TILE) // 2
+        offset_y = HUD_HEIGHT + (1080 - HUD_HEIGHT - rows * TILE) // 2
+
         for r in range(rows):
             for c in range(cols):
-                rx = c * TILE
-                ry = r * TILE + HUD_HEIGHT
+                rx = offset_x + c * TILE
+                ry = offset_y + r * TILE
                 if self.grid[r][c] == 1:
                     pygame.draw.rect(surf, C_WALL, (rx, ry, TILE, TILE))
                     pygame.draw.rect(surf, C_WALL_EDGE, (rx, ry, TILE, TILE), 1)
@@ -707,17 +757,17 @@ class Game:
                     pygame.draw.rect(surf, col, (rx, ry, TILE, TILE))
 
         if self.soul_orb and self.soul_orb.active:
-            self.soul_orb.draw(surf, HUD_HEIGHT)
+            self.soul_orb.draw(surf, offset_x, offset_y)
 
         for coin in self.coins:
-            coin.draw(surf, HUD_HEIGHT)
+            coin.draw(surf, offset_x, offset_y, self.sprites.get('coin'))
 
-        self.portal.draw(surf, HUD_HEIGHT)
+        self.portal.draw(surf, offset_x, offset_y)
 
         for enemy in self.enemies:
-            enemy.draw(surf, HUD_HEIGHT)
+            enemy.draw(surf, offset_x, offset_y, self.sprites.get('enemy'))
 
-        self.player.draw(surf, HUD_HEIGHT)
+        self.player.draw(surf, offset_x, offset_y, self.sprites.get('player'))
 
         hud_rect = pygame.Rect(0, 0, surf.get_width(), HUD_HEIGHT)
         draw_hud(surf, self.player, self.level, self.font, self.small_font,
